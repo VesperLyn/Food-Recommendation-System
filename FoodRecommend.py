@@ -22,7 +22,7 @@ st.write("Find your best food selection.")
 st.write("Search by ingredient, cuisine, or dietary restriction to discover your new favorite dish.")
 
 # input food ingredient or name
-food_input = st.text_input("What food are you in the mood for?", key='food_input', placeholder="Enter food name / ingredient / description at least 3 character")
+food_input = st.text_input("What food are you in the mood for?", key='food_input', placeholder="Enter food name / ingredient / description")
 speller = Speller(lang='en')
 
 # read data
