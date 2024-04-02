@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from autocorrect import Speller
+
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 if 'history' not in st.session_state:
@@ -27,16 +28,17 @@ speller = Speller(lang='en')
 
 # read data
 df = pd.read_csv('./Food Dataset.csv')
-df = df[['Food_Name', 'Food_Description']]
+df = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
 
 def recommend_food(food_input):
-    data = df[['Food_Name', 'Food_Description']]
+    data = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
 
     # convert word to lowercase
     data['Food_Description'] = data['Food_Description'].str.lower()
+    data['Food_Name'] = data['Food_Name'].str.lower()
 
     # converting to vectors using sbert
-    vectors = model.encode(data['Food_Description'].tolist())
+    vectors = model.encode(data['Food_Description'].tolist() + data['Food_Name'].tolist())
 
     user_vectors = model.encode([food_input])
 
@@ -48,9 +50,13 @@ def recommend_food(food_input):
     top_indices = np.argsort(similarities[0])[-5:][::-1]
     recommendations = []
     for i in top_indices:
-        food_name = data['Food_Name'][i]
-        food_description = data['Food_Description'][i]
-        recommendations.append((food_name, food_description))
+        if i < len(data['Food_Name']):
+            food_name = data['Food_Name'][i]
+            food_description = data['Food_Description'][i]
+        else:
+            food_name = data['Food_Name'][i - len(data['Food_Name'])]
+            food_description = data['Food_Description'][i - len(data['Food_Name'])]
+        recommendations.append((food_name.capitalize(), food_description))
         if not recommendations:
             return "Sorry, we cannot find the food to recommend."
     return recommendations
@@ -59,17 +65,19 @@ if st.button('Recommend Food'):
     if food_input:
         st.session_state.history.append(food_input)
 
-    if st.session_state.history:
-        st.write("## History")
-        for i, value in enumerate(st.session_state.history):
-            st.write(f"{i+1}. {value}")
+        if st.session_state.history:
+            st.write("## History")
+            for i, value in enumerate(st.session_state.history):
+                st.write(f"{i+1}. {value}")
 
-    # display top 5 / can add up to 10
-    recommendations = recommend_food(food_input)
-    if recommendations:
-        st.write("## Top 5 Food Recommendations")
-        for i, (food_name, food_description) in enumerate(recommendations):
-            with st.expander(food_name):
-                st.write(f"{food_description}")
+        # display top 5 / can add up to 10
+        recommendations = recommend_food(food_input)
+        if recommendations:
+            st.write("## Top 5 Food Recommendations")
+            for i, (food_name, food_description) in enumerate(recommendations):
+                with st.expander(food_name):
+                    st.write(f"{food_description}")
+        else:
+            st.write("No recommendations found.")
     else:
-        st.write("No recommendations found.")
+        st.write("Please input a food name, ingredient, or description...")
