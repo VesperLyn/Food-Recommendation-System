@@ -4,11 +4,9 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from autocorrect import Speller
+import random
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
-
-if 'history' not in st.session_state:
-    st.session_state.history = []
 
 # User profile
 user_profile = st.sidebar
@@ -61,23 +59,27 @@ def recommend_food(food_input):
             return "Sorry, we cannot find the food to recommend."
     return recommendations
 
+if 'history' not in st.session_state:
+    st.session_state.history = []
+
+if 'recommendations' not in st.session_state:
+    st.session_state.recommendations = [(row['Food_Name'].capitalize(), row['Food_Description']) for index, row in df.sample(5).iterrows()]
+
 if st.button('Recommend Food'):
     if food_input:
         st.session_state.history.append(food_input)
-
-        if st.session_state.history:
-            st.write("## History")
-            for i, value in enumerate(st.session_state.history):
-                st.write(f"{i+1}. {value}")
-
-        # display top 5 / can add up to 10
-        recommendations = recommend_food(food_input)
-        if recommendations:
-            st.write("## Top 5 Food Recommendations")
-            for i, (food_name, food_description) in enumerate(recommendations):
-                with st.expander(food_name):
-                    st.write(f"{food_description}")
-        else:
-            st.write("No recommendations found.")
+        st.session_state.recommendations = recommend_food(food_input)
+        st.write("## Top 5 Food Recommendations")
     else:
         st.write("Please input a food name, ingredient, or description...")
+else:
+    st.write("## Today's Recommendations")
+
+for i, (food_name, food_description) in enumerate(st.session_state.recommendations):
+    with st.expander(food_name):
+        st.write(f"{food_description}")
+
+if 'history' in st.session_state:
+    st.write("## History")
+    for i, value in enumerate(st.session_state.history):
+        st.write(f"{i+1}. {value}")
