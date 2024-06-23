@@ -25,20 +25,23 @@ food_input = st.text_input("What food are you in the mood for?", key='food_input
 speller = Speller(lang='en')
 
 # read data
-df = pd.read_csv('./Food Dataset.csv')
+df = pd.read_csv('./DatasetClone.csv')
 df = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
 
-def recommend_food(food_input):
+def recommend_food(food_input, history):
     data = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
 
     # convert word to lowercase
     data['Food_Description'] = data['Food_Description'].str.lower()
     data['Food_Name'] = data['Food_Name'].str.lower()
 
+    # concat food name and description
+    data['Food_Text'] = data['Food_Name'] + ' ' + data['Food_Description']
+
     # converting to vectors using sbert
-    vectors = model.encode(data['Food_Description'].tolist() + data['Food_Name'].tolist())
-    
-    user_vectors = model.encode([food_input])
+    vectors = model.encode(data['Food_Text'].tolist())
+
+    user_vectors = model.encode([food_input.lower()])
 
     # finding similarities between vector
     similarities = cosine_similarity(user_vectors, vectors)
@@ -47,37 +50,48 @@ def recommend_food(food_input):
     # ascending sort
     top_index = np.argsort(similarities[0])[-5:][::-1]
     recommendations = []
-    for i in top_index:
-        if i < len(data['Food_Name']):
-            food_name = data['Food_Name'][i]
-            food_description = data['Food_Description'][i]
+    history_weights = {}
+    for word in history:
+        if word in history_weights:
+            history_weights[word] += 1
         else:
-            food_name = data['Food_Name'][i - len(data['Food_Name'])]
-            food_description = data['Food_Description'][i - len(data['Food_Name'])]
-        recommendations.append((food_name.capitalize(), food_description))
-        if not recommendations:
-            return "Sorry, we cannot find the food to recommend."
+            history_weights[word] = 1
+
+    weighted_similarities = similarities[0].copy()
+    for i in range(len(weighted_similarities)):
+        food_name = data['Food_Name'][i]
+        food_description = data['Food_Description'][i]
+        for word, freq in history_weights.items():
+            if word in food_name or word in food_description:
+                weighted_similarities[i] += freq * 0.1
+
+    top_index = np.argsort(weighted_similarities)[-5:][::-1]
+    for i in top_index:
+        food_name = data['Food_Name'][i]
+        food_description = data['Food_Description'][i]
+        similarity = similarities[0][i]
+        recommendations.append((food_name.capitalize(), food_description, similarity))
     return recommendations
 
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-if 'recommendations' not in st.session_state:
-    st.session_state.recommendations = [(row['Food_Name'].capitalize(), row['Food_Description']) for index, row in df.sample(5).iterrows()]
+if 'ecommendations' not in st.session_state:
+    st.session_state.recommendations = [(row['Food_Name'].capitalize(), row['Food_Description'], 0) for index, row in df.sample(5).iterrows()]
 
 if st.button('Recommend Food'):
     if food_input:
         st.session_state.history.append(food_input)
-        st.session_state.recommendations = recommend_food(food_input)
+        st.session_state.recommendations = recommend_food(food_input, st.session_state.history)
         st.write("## Top 5 Food Recommendations")
     else:
         st.write("Please input a food name, ingredient, or description...")
 else:
     st.write("## Today's Recommendations")
 
-for i, (food_name, food_description) in enumerate(st.session_state.recommendations):
+for i, (food_name, food_description, similarity) in enumerate(st.session_state.recommendations):
     with st.expander(food_name):
-        st.write(f"{food_description}")
+        st.write(f"{food_description} (Similarity: {similarity:.2f})")
 
 if 'history' in st.session_state:
     st.write("## History")
