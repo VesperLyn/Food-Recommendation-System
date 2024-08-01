@@ -6,55 +6,57 @@ from sklearn.metrics.pairwise import cosine_similarity
 from autocorrect import Speller
 import random
 
+#Load SBERT model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# User profile
-user_profile = st.sidebar
-user_profile.write("Welcome, Mathew Johnson!")
-user_image = "ProfilePic.jpg"
-user_profile.image(user_image, width=100)
-user_profile.write("Email: mathewjohnson@gmail.com")
+#User profile section
+userProfile = st.sidebar
+userProfile.write("Welcome, Mathew Johnson!")
+userImage = "ProfilePic.jpg"
+userProfile.image(userImage, width=100)
+userProfile.write("Email: mathewjohnson@gmail.com")
 
+#Homepage
 st.write("## Food Recommendation System!")
 st.image("./homepage.jpg", use_column_width=True)
 st.write("Find your best food selection.")
 st.write("Search by ingredient, cuisine, or dietary restriction to discover your new favorite dish.")
 
-# input food ingredient or name
-food_input = st.text_input("What food are you in the mood for?", key='food_input', placeholder="Enter food name / ingredient / description")
+#Input keyword
+foodInput = st.text_input("What food are you in the mood for?", key='foodInput', placeholder="Enter food name / ingredient / description")
 speller = Speller(lang='en')
 
-# read data
-df = pd.read_csv('./Food Dataset.csv')
-df = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
+#Read dataset
+dataset = pd.read_csv('./Food Dataset.csv')
+dataset = dataset[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
 
-def recommend_food(food_input):
-    data = df[['Food_Name', 'Food_Type', 'Food_Origin', 'Food_Description']]
+def recommendFood(foodInput):
+    #Make copy of dataset
+    duplicate = dataset.copy()
 
-    # convert word to lowercase
-    data['Food_Description'] = data['Food_Description'].str.lower()
-    data['Food_Name'] = data['Food_Name'].str.lower()
+    #Convert to lowercase
+    duplicate['Food_Description'] = duplicate['Food_Description'].str.lower()
+    duplicate['Food_Name'] = duplicate['Food_Name'].str.lower()
 
-    # converting to vectors using sbert
-    vectors = model.encode(data['Food_Description'].tolist() + data['Food_Name'].tolist())
-    
-    user_vectors = model.encode([food_input])
+    #Encode food name and desc as individual
+    vectors = model.encode(duplicate['Food_Description'].tolist() + duplicate['Food_Name'].tolist())
 
-    # finding similarities between vector
-    similarities = cosine_similarity(user_vectors, vectors)
+    userVectors = model.encode([foodInput])
 
-    # get 5 food with same similarity
-    # ascending sort
-    top_index = np.argsort(similarities[0])[-5:][::-1]
+    #Calculate similarity
+    similarities = cosine_similarity(userVectors, vectors)
+
+    #Display 5 recommendation with ascending sort
+    topIndex = np.argsort(similarities[0])[-5:][::-1]
     recommendations = []
-    for i in top_index:
-        if i < len(data['Food_Name']):
-            food_name = data['Food_Name'][i]
-            food_description = data['Food_Description'][i]
+    for i in topIndex:
+        if i < len(duplicate['Food_Name']):
+            foodName = duplicate['Food_Name'][i]
+            foodDescription = duplicate['Food_Description'][i]
         else:
-            food_name = data['Food_Name'][i - len(data['Food_Name'])]
-            food_description = data['Food_Description'][i - len(data['Food_Name'])]
-        recommendations.append((food_name.capitalize(), food_description))
+            foodName = duplicate['Food_Name'][i - len(duplicate['Food_Name'])]
+            foodDescription = duplicate['Food_Description'][i - len(duplicate['Food_Name'])]
+        recommendations.append((foodName.capitalize(), foodDescription))
         if not recommendations:
             return "Sorry, we cannot find the food to recommend."
     return recommendations
@@ -62,23 +64,27 @@ def recommend_food(food_input):
 if 'history' not in st.session_state:
     st.session_state.history = []
 
+#Displaying today recommendation if history not exist
 if 'recommendations' not in st.session_state:
-    st.session_state.recommendations = [(row['Food_Name'].capitalize(), row['Food_Description']) for index, row in df.sample(5).iterrows()]
+    st.session_state.recommendations = [(row['Food_Name'].capitalize(), row['Food_Description']) for index, row in dataset.sample(5).iterrows()]
 
-if st.button('Recommend Food'):
-    if food_input:
-        st.session_state.history.append(food_input)
-        st.session_state.recommendations = recommend_food(food_input)
+#Recommend button
+if st.button('Get Recommendation Now'):
+    if foodInput:
+        st.session_state.history.append(foodInput)
+        st.session_state.recommendations = recommendFood(foodInput)
         st.write("## Top 5 Food Recommendations")
     else:
         st.write("Please input a food name, ingredient, or description...")
 else:
     st.write("## Today's Recommendations")
 
-for i, (food_name, food_description) in enumerate(st.session_state.recommendations):
-    with st.expander(food_name):
-        st.write(f"{food_description}")
+#Display food name with drop down desc
+for i, (foodName, foodDescription) in enumerate(st.session_state.recommendations):
+    with st.expander(foodName):
+        st.write(f"{foodDescription}")
 
+#Display history
 if 'history' in st.session_state:
     st.write("## History")
     for i, value in enumerate(st.session_state.history):
