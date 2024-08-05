@@ -56,15 +56,15 @@ def recommendFood(foodInput, history):
     recommendations = []
 
     #Add weight(value) to each history
-    history_weights = {}
+    historyWeights = {}
     for word in history:
         for i, row in data.iterrows():
             if word in row['Food_Name'] or word in row['Food_Description']:
-                history_weights[i] = history_weights.get(i, 0) + 0.1
+                historyWeights[i] = historyWeights.get(i, 0) + 0.1
 
     #Add history weights to similarities
     for i in range(len(similarities)):
-        similarities[i] += history_weights.get(i, 0)
+        similarities[i] += historyWeights.get(i, 0)
 
     #Get top 5 recommendations
     topIndex = np.argsort(similarities[0])[-5:][::-1]
